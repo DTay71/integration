@@ -10,8 +10,9 @@ import logging
 import os
 import shutil
 from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, _patch, patch
 
+from aiohttp import AsyncResolver
 from awesomeversion import AwesomeVersion
 import freezegun
 from homeassistant import loader
@@ -106,6 +107,23 @@ def hass_storage():
     """Fixture to mock storage."""
     with mock_storage() as stored_data:
         yield stored_data
+
+
+@pytest.fixture(autouse=True, scope="session")
+def mock_zeroconf_resolver() -> Generator[_patch]:
+    """Mock out the zeroconf resolver."""
+    if AwesomeVersion(HA_VERSION) < "2025.2.0dev0":
+        yield None
+    else:
+        patcher = patch(
+            "homeassistant.helpers.aiohttp_client._async_make_resolver",
+            return_value=AsyncResolver(),
+        )
+        patcher.start()
+        try:
+            yield patcher
+        finally:
+            patcher.stop()
 
 
 @pytest.fixture
@@ -256,15 +274,21 @@ def snapshots(snapshot: Snapshot) -> SnapshotFixture:
             for entry in value:
                 data[key][entry["id"]] = entry
 
-        dashboard_resources: ResourceStorageCollection = hacs.hass.data[LOVELACE_DOMAIN][
-            "resources"
-        ]
+        dashboard_resources: ResourceStorageCollection
+        try:
+            # Changed to 2025.2.0
+            # Changed in https://github.com/home-assistant/core/pull/136313
+            dashboard_resources = hacs.hass.data[LOVELACE_DOMAIN].resources
+        except AttributeError:
+            dashboard_resources = hacs.hass.data[LOVELACE_DOMAIN][
+                "resources"
+            ]
 
         def _entity_state(entity: er.RegistryEntry) -> dict[str, Any]:
             state = hacs.hass.states.get(entity.entity_id)
             return {
                 "state": state.state if state else None,
-                "attributes": state.attributes if state else None,
+                "attributes": recursive_remove_key(state.attributes, ("display_precision", "update_percentage")) if state else None,
             }
 
         snapshot.assert_match(
@@ -302,7 +326,8 @@ def snapshots(snapshot: Snapshot) -> SnapshotFixture:
                         ),
                         **(additional or {}),
                     },
-                    ("categories", "config_entry_id", "device_id", "labels"),
+                    ("categories", "config_entry_id",
+                     "device_id", "labels", "config_subentry_id"),
                 ),
             ),
             filename,

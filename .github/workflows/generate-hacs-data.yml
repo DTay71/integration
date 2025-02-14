@@ -56,10 +56,10 @@ jobs:
         category: ${{ fromJSON( needs.generate-matrix.outputs.categories )}}
     steps:
       - name: Checkout the repository
-        uses: actions/checkout@v4.1.7
+        uses: actions/checkout@v4.2.2
 
       - name: Set up Python
-        uses: actions/setup-python@v5.2.0
+        uses: actions/setup-python@v5.4.0
         id: python
         with:
           python-version: "3.12"
@@ -106,7 +106,7 @@ jobs:
             core.summary.write()
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v4.4.0
+        uses: actions/upload-artifact@v4.6.0
         with:
           name: ${{ matrix.category }}
           path: |
@@ -157,16 +157,12 @@ jobs:
               if (!changedPctTarget) {
                 if (!parsed.new_count || parsed.new_count <= 0) {
                   changedPctTarget = 0;
-                } else if (parsed.new_count > 1500) {
-                    changedPctTarget = 3;
-                } else if (parsed.new_count > 1000) {
-                    changedPctTarget = 4;
                 } else if (parsed.new_count > 750) {
-                    changedPctTarget = 5;
+                    changedPctTarget = 7;
                 } else if (parsed.new_count > 500) {
-                    changedPctTarget = 6;
-                } else if (parsed.new_count > 250) {
                     changedPctTarget = 8;
+                } else if (parsed.new_count > 250) {
+                    changedPctTarget = 9;
                 } else if (parsed.new_count > 100) {
                     changedPctTarget = 10;
                 } else if (parsed.new_count > 75) {
@@ -184,7 +180,7 @@ jobs:
 
               core.info(`[${directory}] changedPctTarget: ${changedPctTarget}`);
 
-              if (parsed.changed_pct >= 1 || parsed.diff >= 1) {
+              if (parsed.changed >= 1 || parsed.diff >= 1) {
                 changedCategories.push(directory)
               }
 
@@ -226,10 +222,10 @@ jobs:
         category: ${{ fromJSON(needs.summarize.outputs.changedCategories) }}
     steps:
       - name: Checkout the repository
-        uses: actions/checkout@v4.1.7
+        uses: actions/checkout@v4.2.2
 
       - name: Set up Python
-        uses: actions/setup-python@v5.2.0
+        uses: actions/setup-python@v5.4.0
         id: python
         with:
           python-version: "3.12"
